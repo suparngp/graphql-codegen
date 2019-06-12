@@ -1,68 +1,115 @@
 // @flow
 
-import { ClassSpec, PropertySpec, InterfaceSpec, RootSpec } from '../spec-generator';
-import { className, adjustType } from '../utils';
+import { ClassSpec, InterfaceSpec, PropertySpec, RootSpec } from '../spec-generator';
+import {
+	asPropertyName,
+	className,
+	defaultImpl,
+	fieldsToProperties,
+	fragmentDefaultImplPath,
+	fragmentPath,
+	FragmentsProperty,
+	FragmentsWrapper,
+	wrappedPropertyName,
+	wrapperName,
+	wrapperPath
+} from '../utils';
 
-const process = (parentSpec: RootSpec, fieldGroup: any, name: string, fragmentMap: {[string]: RootSpec}, isExtendable: boolean = true, isDataClass: boolean = false, skipFragments: boolean = false) => {
-	const { fields, inlineFragments = [], fragmentSpreads = [] } = fieldGroup;
-	const properties = fields
-		.map(({responseName, fieldName, type}) => 
-			new PropertySpec(responseName || fieldName)
-				.ofType(adjustType(type)));
-	const hasFragments = (inlineFragments.length || fragmentSpreads.length);
-	const groupSpec = (hasFragments
-		? new InterfaceSpec(name) 
-		: new ClassSpec(name)
-			.isExtendable(isExtendable)
-			.setDataClass(isDataClass))
-		.containedBy(parentSpec)
-		.setSerializable(true)
-		.setStable(false)
-		.addProperties(properties);
-	
-	if (hasFragments) {
-		groupSpec.setSerializer(`${name}.Companion::class`);
-	}
-		
-	fields.filter(field => !!field.fields).forEach(field => {
-		const child = process(hasFragments ? parentSpec : groupSpec, field, className(field.type), fragmentMap, isExtendable, isDataClass, skipFragments);
-		if (!child.container) {
-			child.containedBy(groupSpec);
-		}
-	});
-	if (skipFragments) {
-		return groupSpec;
-	}
-	
-	const subtypes = [];
-	
-	fragmentSpreads
-		.filter(key => !parentSpec.children[className(key)])
-		.map(key => fragmentMap[key])
-		.forEach(fragment => {
-			const spec = new ClassSpec(className(fragment.name))
-				.extendsClass(fragment)
-				.implementsInterface(groupSpec)
-				.containedBy(parentSpec)
-				.setSerializable(true)
-				.setStable(false);
-			subtypes.push(spec);
+const process = (fieldGroup: any, containerSpec: RootSpec) => {
+	const { inlineFragments = [], fragmentSpreads = [], fields = [], type } = fieldGroup;
+	const specName = className(type);
+	const hasFragments = inlineFragments.length || fragmentSpreads.length;
+	let spec;
+	if (!hasFragments) {
+		spec = new ClassSpec(specName)
+			.setDataClass(true)
+			.setSerializable(true)
+			.containedBy(containerSpec);
+		const properties = fieldsToProperties(fields);
+		spec.addProperties(properties);
+	} else {
+		// create the interface
+		spec = new InterfaceSpec(specName).setSerializer(`${wrapperPath(specName)}.Companion::class`).containedBy(containerSpec);
+		const properties = fieldsToProperties(fields);
+		spec.addProperties(properties);
+
+		// create ref impl of the interface
+		const implSpec = new ClassSpec(defaultImpl(specName))
+			.implementsInterface(spec)
+			.setDataClass(true)
+			.setSerializable(true)
+			.containedBy(spec)
+			.addProperties(fieldsToProperties(fields));
+
+		// create the wrapper
+		const wrapperSpec = new ClassSpec(wrapperName(specName))
+			.containedBy(spec)
+			.setDataClass(true)
+			.setSerializable(true)
+			.setCustomSerializer(
+				`
+				companion object: KSerializer<${specName}> {
+					override val descriptor: SerialDescriptor = StringDescriptor.withName("${specName}Serializer")
+
+					override fun deserialize(decoder: Decoder): ${specName} {
+							val json = (decoder as JsonInput).decodeJson()
+							val ${wrappedPropertyName()} = Json.nonstrict.fromJson(${defaultImpl(specName)}.serializer(), json)
+							${fragmentSpreads
+		.map(fragmentName => {
+			return `val ${asPropertyName(fragmentName)} = Json.nonstrict.fromJsonOrNull(${fragmentDefaultImplPath(fragmentName)}.serializer(), json)`;
+		})
+		.join('\n')}
+							
+							return ${wrapperName(specName)}(${wrappedPropertyName()}, ${FragmentsWrapper}(${fragmentSpreads.map(f => asPropertyName(f)).join(', ')}))
+					}
+
+					override fun serialize(encoder: Encoder, obj: ${specName}) {
+						val ${wrappedPropertyName()} = obj as ${wrapperName(specName)}
+						val jsonObjects = listOfNotNull(
+								Json.nonstrict.toJson(${defaultImpl(specName)}.serializer(), ${wrappedPropertyName()}.${wrappedPropertyName()} as ${defaultImpl(specName)}).jsonObject,
+								${fragmentSpreads
+		.map(fragmentName => {
+			return `if (${wrappedPropertyName()}.${FragmentsProperty}.${asPropertyName(fragmentName)} != null) Json.nonstrict.toJson(
+										${fragmentDefaultImplPath(fragmentName)}.serializer(),
+										${wrappedPropertyName()}.${FragmentsProperty}.${asPropertyName(fragmentName)} as ${fragmentDefaultImplPath(fragmentName)}
+								).jsonObject else null`;
+		})
+		.join(',\n')}
+						)
+
+
+						val jsonMap = mutableMapOf<String, JsonElement>()
+						for (json in jsonObjects) {
+								val jsonObject = json.jsonObject
+								for (key in jsonObject.keys) {
+									jsonMap[key] = jsonObject[key]!!
+								}
+						}
+						(encoder as JsonOutput).encodeJson(JsonObject(jsonMap))
+					}
+
+			}
+				`
+			);
+		const wrappedProperty = new PropertySpec(wrappedPropertyName())
+			.ofType(specName)
+			.isIncludedInConstructor(true)
+			.setAccessModifier('private');
+		wrapperSpec.addProperty(wrappedProperty).implementsInterfaceBy(spec, wrappedProperty);
+
+		// create fragments spec
+		const fragmentsWrapperSpec = new ClassSpec(FragmentsWrapper)
+			.setDataClass(true)
+			.setSerializable(true)
+			.containedBy(spec);
+		fragmentSpreads.forEach(fragmentName => {
+			fragmentsWrapperSpec.addProperty(new PropertySpec(asPropertyName(fragmentName)).ofType(`${fragmentPath(fragmentName)}? = null`).isIncludedInConstructor(true));
 		});
-  
-	// process inline fragments
-	inlineFragments.forEach(fragment => {
-		const spec = process(parentSpec, fragment, fragment.typeCondition, fragmentMap, isExtendable, isDataClass, skipFragments)
-			.implementsInterface(groupSpec)
-			.containedBy(parentSpec);
-		subtypes.push(spec);
-	});
-	if (hasFragments) {
-		groupSpec.addSubtypes(subtypes);
+
+		wrapperSpec.addProperty(new PropertySpec(FragmentsProperty).ofType(`${FragmentsWrapper} = ${FragmentsWrapper}()`));
 	}
-	
-	return groupSpec;
+	const complexFields = fieldGroup.fields.filter(field => !!field.fields);
+	complexFields.forEach(fieldGroup => process(fieldGroup, spec));
 };
-
-
 
 export default process;

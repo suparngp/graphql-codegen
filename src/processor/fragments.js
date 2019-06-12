@@ -1,9 +1,8 @@
 // @flow
-import { FileSpec, ClassSpec } from '../spec-generator';
-
-import processFieldGroup from './fragment-processor';
-import { defaultImports } from '../utils';
+import { FileSpec } from '../spec-generator';
 import { GenericSpec } from '../spec-generator/generic-spec';
+import { defaultImports } from '../utils';
+import processFieldGroup from './fragment-processor';
 
 const process = (input: any) => {
 	const { fragments } = input;
@@ -21,15 +20,6 @@ const process = (input: any) => {
 			)
 		);
 
-	// let fragmentsSpec = new ClassSpec('Fragments');
-	// const pureFragments = fragments.map(fragment => processFieldGroup(fragmentsSpec, fragment, fragment.fragmentName, {}, true, false, true, true));
-	// const fragmentMap = pureFragments.reduce((prev, next) => {
-	// 	prev[next.name] = next;
-	// 	return prev;
-	// }, {});
-
-	// fragmentsSpec = new ClassSpec('Fragments');
-	// fragments.map(fragment => processFieldGroup(fragmentsSpec, fragment, fragment.fragmentName, fragmentMap, true, false, false, true));
 	file.addRootSpec(processFieldGroup(fragments));
 	return file;
 };

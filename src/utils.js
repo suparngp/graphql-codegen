@@ -1,4 +1,6 @@
 import { camelCase, upperFirst } from 'lodash';
+import { PropertySpec } from './spec-generator';
+
 const adjustType = type => {
 	let adjustedType;
 
@@ -66,4 +68,38 @@ const defaultImports = [
 	'import kotlinx.serialization.internal.StringDescriptor'
 ];
 
-export { adjustType, stripedType, className, buildClass, processField, prefixCount, defaultImports };
+const fieldsToProperties = (fields: any[]) => {
+	return fields.map(field => new PropertySpec(field.responseName).ofType(adjustType(field.type)));
+};
+
+const FragmentsContainer = 'Fragments';
+const defaultImpl = (ifaceName: string) => `${ifaceName}DefaultImpl`;
+const fragmentPath = (fragmentName: string) => `${FragmentsContainer}.${fragmentName}`;
+const fragmentDefaultImplPath = (fragmentName: string) => `${fragmentPath(fragmentName)}.${defaultImpl(fragmentName)}`;
+const wrapperPath = (name: string) => `${name}.${wrapperName(name)}`;
+const wrapperName = (name: string) => `${name}Wrapper`;
+const asPropertyName = (name: string) => camelCase(name);
+const FragmentsWrapper = 'FragmentsWrapper';
+const wrappedPropertyName = () => 'delegate';
+const FragmentsProperty = 'fragments';
+
+export {
+	adjustType,
+	stripedType,
+	className,
+	buildClass,
+	processField,
+	prefixCount,
+	defaultImports,
+	fieldsToProperties,
+	FragmentsContainer,
+	defaultImpl,
+	fragmentPath,
+	fragmentDefaultImplPath,
+	wrapperPath,
+	wrapperName,
+	asPropertyName,
+	FragmentsWrapper,
+	wrappedPropertyName,
+	FragmentsProperty
+};
