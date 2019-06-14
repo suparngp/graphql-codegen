@@ -7,11 +7,13 @@ export default class RootSpec extends Spec {
 	properties: PropertySpec[];
 	children: { [string]: RootSpec };
 	customSerializer: string;
+	bodyFragments: string[];
 
 	constructor(name: string) {
 		super(name);
 		this.properties = [];
 		this.children = {};
+		this.bodyFragments = [];
 	}
 	get accessName() {
 		let container = this.container;
@@ -51,6 +53,11 @@ export default class RootSpec extends Spec {
 
 	setCustomSerializer(customSerializer: string) {
 		this.customSerializer = customSerializer;
+		return this;
+	}
+
+	addBodyFragment(fragment: string) {
+		this.bodyFragments.push(fragment);
 		return this;
 	}
 

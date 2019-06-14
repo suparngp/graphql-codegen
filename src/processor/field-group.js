@@ -18,7 +18,8 @@ import {
 const process = (fieldGroup: any, containerSpec: RootSpec) => {
 	const { inlineFragments = [], fragmentSpreads = [], fields = [], type } = fieldGroup;
 	const specName = className(type);
-	const hasFragments = inlineFragments.length || fragmentSpreads.length;
+	// const hasFragments = inlineFragments.length || fragmentSpreads.length;
+	const hasFragments = fragmentSpreads.length;
 	let spec;
 	if (!hasFragments) {
 		spec = new ClassSpec(specName)

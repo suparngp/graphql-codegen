@@ -1,3 +1,4 @@
+// @flow
 import { camelCase, upperFirst } from 'lodash';
 import { PropertySpec } from './spec-generator';
 
@@ -62,7 +63,6 @@ const defaultImports = [
 	'import kotlinx.serialization.Encoder',
 	'import kotlinx.serialization.withName',
 	'import kotlinx.serialization.json.Json',
-	'import kotlinx.serialization.json.JsonLiteral',
 	'import kotlinx.serialization.json.JsonInput',
 	'import kotlinx.serialization.json.JsonOutput',
 	'import kotlinx.serialization.internal.StringDescriptor'

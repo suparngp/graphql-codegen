@@ -1,14 +1,13 @@
 // @flow
- 
+
 import { ClassSpec, InterfaceSpec } from '../spec-generator';
 import { defaultImpl, fieldsToProperties, FragmentsContainer, wrapperPath } from '../utils';
 import processFieldGroup from './field-group';
 
 // eslint-disable-next-line no-undef
 const process = (fragments: Fragment[]) => {
-
 	// Create top Fragments container interface
-	const root = new InterfaceSpec(FragmentsContainer);
+	const root = new InterfaceSpec(FragmentsContainer).setStable(false);
 	const fragmentSpecs = fragments.map(fragment => {
 		const spec = new InterfaceSpec(fragment.fragmentName).containedBy(root);
 		const properties = fieldsToProperties(fragment.fields);

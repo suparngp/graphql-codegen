@@ -80,11 +80,12 @@ export default class InterfaceSpec extends RootSpec {
 		const properties = ownProperties.map(p => p.render()).join('\n');
 
 		const body =
-			companion || properties || this.hasChildren()
+			this.bodyFragments.length || companion || properties || this.hasChildren()
 				? `{
 			${this.renderChildren()}
 			${this.renderCustomSerializer()}
 			${properties}
+			${this.bodyFragments.join('\n')}
 		}`
 				: '';
 

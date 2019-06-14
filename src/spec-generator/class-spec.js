@@ -61,7 +61,7 @@ export default class ClassSpec extends RootSpec {
 	}
 
 	render(): string {
-		const { isAbstract, accessModifier, isDataClass, name, children, extendable, implementedFrom, extendedFrom, properties, container, customSerializer } = this;
+		const { bodyFragments, isAbstract, accessModifier, isDataClass, name, children, extendable, implementedFrom, extendedFrom, properties, container, customSerializer } = this;
 		const parentProperties = extendedFrom && typeof extendedFrom !== 'string' ? extendedFrom.properties : [];
 		const parentPropertiesMap = parentProperties.reduce((prev, next) => {
 			prev[next.name] = true;
@@ -138,7 +138,7 @@ export default class ClassSpec extends RootSpec {
 		const extensions = [extensionHeader, implementationHeader].filter(Boolean).join(', ');
 		const childrenSpecs = ((Object.values(children): any): RootSpec[]);
 		const body =
-			customSerializer || childrenSpecs.length
+			bodyFragments.length || customSerializer || childrenSpecs.length
 				? `{
 			${this.renderCustomSerializer()}
 			${childrenSpecs
@@ -150,6 +150,8 @@ export default class ClassSpec extends RootSpec {
 		.map(p => p.render())
 		.filter(Boolean)
 		.join('\n')}
+
+		${bodyFragments.join('\n')}
 		}`
 				: '';
 		return `${header}${separator}${extensions}${body}`;

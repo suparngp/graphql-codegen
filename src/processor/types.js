@@ -10,7 +10,6 @@ const process = (input: any) => {
 		.withImports(defaultImports)
 		.inPackage('com.suparnatural');
 
-	file.addRootSpec(new PropertySpec('JsonStrategy').setValue('Json.nonstrict').setStable(false));
 	file.addRootSpec(new TypeAliasSpec('ID').setValue('String'));
 
 	const result = typesUsed.map(({ name, fields, values, kind }) => {
